@@ -6,6 +6,7 @@ import AppStateHOC from '../lib/app-state-hoc.jsx';
 import GUI from '../containers/gui.jsx';
 import HashParserHOC from '../lib/hash-parser-hoc.jsx';
 import log from '../lib/log.js';
+import attachEmbedBridge from './embed-bridge.js';
 
 const onClickLogo = () => {
     window.location = 'https://scratch.mit.edu';
@@ -80,6 +81,7 @@ export default appTarget => {
                 backpackHost={backpackHost}
                 canSave={false}
                 onClickLogo={onClickLogo}
+                onVmInit={attachEmbedBridge}
             />,
         appTarget);
 };
