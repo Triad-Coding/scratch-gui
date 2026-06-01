@@ -11,8 +11,8 @@
 [[advanced.headers]]
 source = "**/*.html"
 [advanced.headers.headers]
-# Only app.yourdomain.com may embed this editor in an iframe; all other sites
+# Only https://triadcoding.com may embed this editor in an iframe; all other sites
 # are refused. Keep this value in sync with EMBED_PARENT_ORIGIN in the build.
-Content-Security-Policy = "frame-ancestors https://app.yourdomain.com"
+Content-Security-Policy = "frame-ancestors https://triadcoding.com"
 X-Content-Type-Options = "nosniff"
 Referrer-Policy = "no-referrer"

@@ -16,7 +16,7 @@ RUN npm ci
 # Origin allowed to embed + message this editor (your app). Baked in at build
 # time and read by src/playground/embed-bridge.js via webpack DefinePlugin.
 # Override per-environment:  --build-arg EMBED_PARENT_ORIGIN=https://app.example.com
-ARG EMBED_PARENT_ORIGIN=https://app.yourdomain.com
+ARG EMBED_PARENT_ORIGIN=https://triadcoding.com
 ENV EMBED_PARENT_ORIGIN=${EMBED_PARENT_ORIGIN}
 
 # REQUIRED: downloads the micro:bit firmware and generates
