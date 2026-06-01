@@ -1,0 +1,19 @@
+# Template — NOT used directly. The Dockerfile substitutes __EMBED_PARENT_ORIGIN__
+# with the EMBED_PARENT_ORIGIN build arg and writes the result to sws.toml, so the
+# same single value drives BOTH the JS origin check and this header (no drift).
+#
+# Do NOT set SERVER_SECURITY_HEADERS=true: it forces X-Frame-Options: DENY and
+# frame-ancestors 'self', which would block your app from framing the editor.
+
+[advanced]
+
+# Catch-all `**` so the header reliably reaches the root document (`/`) — the
+# response an attacker would frame. An `*.html` glob can miss the extensionless
+# root request. frame-ancestors is ignored on non-document responses, so applying
+# these headers to every response is harmless.
+[[advanced.headers]]
+source = "**"
+[advanced.headers.headers]
+Content-Security-Policy = "frame-ancestors __EMBED_PARENT_ORIGIN__"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "no-referrer"
