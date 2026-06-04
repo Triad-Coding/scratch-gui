@@ -11,9 +11,33 @@
 # response an attacker would frame. An `*.html` glob can miss the extensionless
 # root request. frame-ancestors is ignored on non-document responses, so applying
 # these headers to every response is harmless.
+#
+# Cache-Control here is the SAFE BASELINE for every response. SWS otherwise sends
+# `max-age=86400` (1 day) for JS/HTML, which would mask a new deploy: the entry
+# HTML (`/`, *.html) and the entry bundles (gui.js, player.js, …) are NOT
+# content-hashed — they keep the same URL across builds — so a stale day-old copy
+# would keep running the old editor. `no-cache` lets the browser store them but
+# forces a conditional revalidation on each load (cheap 304 via ETag), so a new
+# build is picked up immediately. The content-hashed output below opts back out.
 [[advanced.headers]]
 source = "**"
 [advanced.headers.headers]
 Content-Security-Policy = "frame-ancestors __EMBED_PARENT_ORIGIN__"
 X-Content-Type-Options = "nosniff"
 Referrer-Policy = "no-referrer"
+Cache-Control = "no-cache"
+
+# Content-hashed output: the filename embeds a content hash
+# (chunks/[name].[chunkhash].js and static/assets/[name].[hash][ext]), so any
+# change produces a NEW url. These can be cached forever; `immutable` tells the
+# browser never to revalidate. Listed AFTER the catch-all so they override its
+# `no-cache` for these paths (SWS resolves overlapping rules by definition order).
+[[advanced.headers]]
+source = "**/static/assets/**"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[[advanced.headers]]
+source = "**/chunks/**"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=31536000, immutable"
