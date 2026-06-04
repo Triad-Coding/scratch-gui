@@ -94,6 +94,20 @@ const distConfig = baseConfig.clone()
         })
     );
 
+// Content-hash the deployed entry bundles (gui.[hash].js, player.[hash].js, …)
+// so every build yields a NEW url. The editor sits behind a Cloudflare CDN that
+// edge-caches .js and won't reliably revalidate, so a fixed `gui.js` name lets a
+// stale bundle survive a deploy; a content hash makes that impossible — the only
+// always-fresh file is index.html (served `no-cache`), and HtmlWebpackPlugin
+// rewrites its <script> tag to the hashed name automatically.
+//
+// Skipped under `webpack serve` (npm start): webpack-dev-server enables HMR by
+// default, and webpack forbids [contenthash] with HMR. WEBPACK_SERVE is set by
+// webpack-cli only for the serve command, so dev keeps the stable `[name].js`.
+// The dist/ UMD library below is deliberately left unhashed — consumers import
+// it by a stable filename.
+const entryFilename = process.env.WEBPACK_SERVE ? '[name].js' : '[name].[contenthash].js';
+
 // build the examples and debugging tools in `build/`
 const buildConfig = baseConfig.clone()
     .enableDevServer(process.env.PORT || 8601)
@@ -105,7 +119,8 @@ const buildConfig = baseConfig.clone()
             player: './src/playground/player.jsx'
         },
         output: {
-            path: path.resolve(__dirname, 'build')
+            path: path.resolve(__dirname, 'build'),
+            filename: entryFilename
         }
     })
     .addPlugin(new HtmlWebpackPlugin({
