@@ -41,3 +41,11 @@ Cache-Control = "public, max-age=31536000, immutable"
 source = "**/chunks/**"
 [advanced.headers.headers]
 Cache-Control = "public, max-age=31536000, immutable"
+
+# Content-hashed entry bundles (static/js/gui.[contenthash].js, …). Same deal as
+# above: the hash changes the url on every content change, so these are immutable.
+# The unhashed extension-worker.js stays at the root and keeps the no-cache baseline.
+[[advanced.headers]]
+source = "**/static/js/**"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=31536000, immutable"

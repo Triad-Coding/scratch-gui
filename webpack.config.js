@@ -106,7 +106,12 @@ const distConfig = baseConfig.clone()
 // webpack-cli only for the serve command, so dev keeps the stable `[name].js`.
 // The dist/ UMD library below is deliberately left unhashed — consumers import
 // it by a stable filename.
-const entryFilename = process.env.WEBPACK_SERVE ? '[name].js' : '[name].[contenthash].js';
+//
+// Hashed bundles go under `static/js/` so SWS can serve them `immutable` via a
+// `**/static/js/**` rule (a content hash makes the url change-on-change, so the
+// browser/CDN never need revalidate). The unhashed `extension-worker.js` stays
+// at the root and keeps the `no-cache` baseline. Dev keeps the flat root path.
+const entryFilename = process.env.WEBPACK_SERVE ? '[name].js' : 'static/js/[name].[contenthash].js';
 
 // build the examples and debugging tools in `build/`
 const buildConfig = baseConfig.clone()
@@ -120,7 +125,13 @@ const buildConfig = baseConfig.clone()
         },
         output: {
             path: path.resolve(__dirname, 'build'),
-            filename: entryFilename
+            filename: entryFilename,
+            // Pin to the server root. With the entry bundle now under static/js/,
+            // webpack's default `publicPath: 'auto'` would infer the base from the
+            // script's own url and fetch async chunks from /static/js/chunks/ —
+            // but they're emitted to /chunks/. The editor is always served at `/`,
+            // so an absolute root publicPath resolves chunks and assets correctly.
+            publicPath: '/'
         }
     })
     .addPlugin(new HtmlWebpackPlugin({
