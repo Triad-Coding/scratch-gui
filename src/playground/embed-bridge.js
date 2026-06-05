@@ -49,6 +49,15 @@ export default function attachEmbedBridge (vm) {
     const post = (msg, transfer) =>
         window.parent.postMessage(msg, PARENT_ORIGIN, transfer);
 
+    // The embedding parent owns the dirty-gated "leave page?" prompt (see
+    // ScratchLessonPage). Disable the editor's own guard: project-saver-hoc
+    // installs a window.onbeforeunload from the Redux `projectChanged` flag,
+    // which our postMessage autosave never resets — so it would warn forever
+    // after the first edit, even once everything is saved. onVmInit runs in
+    // GUI.componentDidMount, after that HOC's componentWillMount sets it, so
+    // this assignment wins and nothing reinstalls it.
+    window.onbeforeunload = null;
+
     // armed: only autosave after the initial project state is settled, so we
     // never persist the default project over a student's real (still-loading)
     // one, and never treat deserialization as a user edit.
