@@ -57,10 +57,9 @@ export default appTarget => {
         }
     }
 
-    if (process.env.NODE_ENV === 'production' && typeof window === 'object') {
-        // Warn before navigating away
-        window.onbeforeunload = () => true;
-    }
+    // The embedding parent owns the "leave page?" guard, gated on real unsaved
+    // state (see the embed bridge / ScratchLessonPage). An unconditional guard
+    // here would warn even with nothing to save, so it's intentionally omitted.
 
     ReactDOM.render(
         // important: this is checking whether `simulateScratchDesktop` is truthy, not just defined!
