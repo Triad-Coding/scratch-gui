@@ -17,12 +17,10 @@ import SoundTab from '../../containers/sound-tab.jsx';
 import StageWrapper from '../../containers/stage-wrapper.jsx';
 import Loader from '../loader/loader.jsx';
 import Box from '../box/box.jsx';
-import MenuBar from '../menu-bar/menu-bar.jsx';
 import CostumeLibrary from '../../containers/costume-library.jsx';
 import BackdropLibrary from '../../containers/backdrop-library.jsx';
 import Watermark from '../../containers/watermark.jsx';
 
-import Backpack from '../../containers/backpack.jsx';
 import WebGlModal from '../../containers/webgl-modal.jsx';
 import TipsLibrary from '../../containers/tips-library.jsx';
 import Cards from '../../containers/cards.jsx';
@@ -55,12 +53,8 @@ let isRendererSupported = null;
 
 const GUIComponent = props => {
     const {
-        accountNavOpen,
         activeTabIndex,
         alertsVisible,
-        authorId,
-        authorThumbnailUrl,
-        authorUsername,
         basePath,
         backdropLibraryVisible,
         backpackHost,
@@ -68,55 +62,29 @@ const GUIComponent = props => {
         blocksId,
         blocksTabVisible,
         cardsVisible,
-        canChangeLanguage,
-        canChangeTheme,
-        canCreateNew,
-        canEditTitle,
-        canManageFiles,
-        canRemix,
-        canSave,
-        canCreateCopy,
-        canShare,
         canUseCloud,
         children,
         connectionModalVisible,
         costumeLibraryVisible,
         costumesTabVisible,
-        enableCommunity,
         intl,
         isCreating,
         isFullScreen,
         isPlayerOnly,
         isRtl,
-        isShared,
         isTelemetryEnabled,
-        isTotallyNormal,
         loading,
-        logo,
-        renderLogin,
-        onClickAbout,
-        onClickAccountNav,
-        onCloseAccountNav,
-        onLogOut,
-        onOpenRegistration,
-        onToggleLoginOpen,
         onActivateCostumesTab,
         onActivateSoundsTab,
         onActivateTab,
-        onClickLogo,
         onExtensionButtonClick,
-        onProjectTelemetryEvent,
         onRequestCloseBackdropLibrary,
         onRequestCloseCostumeLibrary,
         onRequestCloseTelemetryModal,
-        onSeeCommunity,
-        onShare,
         onShowPrivacyPolicy,
-        onStartSelectingFileUpload,
         onTelemetryModalCancel,
         onTelemetryModalOptIn,
         onTelemetryModalOptOut,
-        showComingSoon,
         soundsTabVisible,
         stageSizeMode,
         targetIsStage,
@@ -125,7 +93,20 @@ const GUIComponent = props => {
         tipsLibraryVisible,
         vm,
         ...componentProps
-    } = omit(props, 'dispatch');
+    } = omit(props, [
+        'dispatch',
+        // Menu-bar-only props: the menu bar was removed from the embedded
+        // editor (Turbo/Color Mode moved to the parent platform's navbar).
+        // Strip them so they don't spread onto the page-wrapper Box below.
+        'accountNavOpen', 'authorId', 'authorThumbnailUrl', 'authorUsername',
+        'canChangeLanguage', 'canChangeTheme', 'canCreateNew', 'canEditTitle',
+        'canManageFiles', 'canRemix', 'canSave', 'canCreateCopy', 'canShare',
+        'enableCommunity', 'isShared', 'isTotallyNormal', 'logo', 'renderLogin',
+        'onClickAbout', 'onClickAccountNav', 'onCloseAccountNav', 'onLogOut',
+        'onOpenRegistration', 'onToggleLoginOpen', 'onClickLogo',
+        'onProjectTelemetryEvent', 'onSeeCommunity', 'onShare',
+        'onStartSelectingFileUpload', 'showComingSoon'
+    ]);
     if (children) {
         return <Box {...componentProps}>{children}</Box>;
     }
@@ -211,39 +192,9 @@ const GUIComponent = props => {
                         onRequestClose={onRequestCloseBackdropLibrary}
                     />
                 ) : null}
-                <MenuBar
-                    accountNavOpen={accountNavOpen}
-                    authorId={authorId}
-                    authorThumbnailUrl={authorThumbnailUrl}
-                    authorUsername={authorUsername}
-                    canChangeLanguage={canChangeLanguage}
-                    canChangeTheme={canChangeTheme}
-                    canCreateCopy={canCreateCopy}
-                    canCreateNew={canCreateNew}
-                    canEditTitle={canEditTitle}
-                    canManageFiles={canManageFiles}
-                    canRemix={canRemix}
-                    canSave={canSave}
-                    canShare={canShare}
-                    className={styles.menuBarPosition}
-                    enableCommunity={enableCommunity}
-                    isShared={isShared}
-                    isTotallyNormal={isTotallyNormal}
-                    logo={logo}
-                    renderLogin={renderLogin}
-                    showComingSoon={showComingSoon}
-                    onClickAbout={onClickAbout}
-                    onClickAccountNav={onClickAccountNav}
-                    onClickLogo={onClickLogo}
-                    onCloseAccountNav={onCloseAccountNav}
-                    onLogOut={onLogOut}
-                    onOpenRegistration={onOpenRegistration}
-                    onProjectTelemetryEvent={onProjectTelemetryEvent}
-                    onSeeCommunity={onSeeCommunity}
-                    onShare={onShare}
-                    onStartSelectingFileUpload={onStartSelectingFileUpload}
-                    onToggleLoginOpen={onToggleLoginOpen}
-                />
+                {/* Menu bar removed for the embedded editor: Turbo Mode and
+                    Color Mode were lifted into the parent platform's lesson
+                    navbar (driven over postMessage via embed-bridge). */}
                 <Box className={styles.bodyWrapper}>
                     <Box className={styles.flexWrapper}>
                         <Box className={styles.editorWrapper}>
@@ -343,9 +294,6 @@ const GUIComponent = props => {
                                     {soundsTabVisible ? <SoundTab vm={vm} /> : null}
                                 </TabPanel>
                             </Tabs>
-                            {backpackVisible ? (
-                                <Backpack host={backpackHost} />
-                            ) : null}
                         </Box>
 
                         <Box className={classNames(styles.stageAndTargetWrapper, styles[stageSize])}>

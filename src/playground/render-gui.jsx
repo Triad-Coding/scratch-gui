@@ -80,7 +80,7 @@ export default appTarget => {
                 backpackHost={backpackHost}
                 canSave={false}
                 onClickLogo={onClickLogo}
-                onVmInit={attachEmbedBridge}
+                onStoreInit={attachEmbedBridge}
             />,
         appTarget);
 };

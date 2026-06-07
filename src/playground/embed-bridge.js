@@ -3,8 +3,11 @@
 //
 // Lets the parent window (your education platform at EMBED_PARENT_ORIGIN)
 // drive project load/save over window.postMessage, instead of the user's
-// local disk. Attached via GUI's onVmInit so it uses the SAME VM instance
-// the editor renders.
+// local disk. Attached via AppStateHOC's onStoreInit so it has the SAME Redux
+// store (and thus the SAME VM instance) the editor renders.
+//
+// The parent also drives two editor toggles that we lifted out of the (removed)
+// menu bar into the parent's lesson navbar: Turbo Mode and Color Mode (theme).
 //
 // Autosave model: the editor watches the VM for edits and pushes the project
 // to the parent, which owns the network. To minimize bytes, the small, often-
@@ -18,15 +21,24 @@
 //     { type: 'scratch:no-project' }                                 // nothing saved yet
 //     { type: 'scratch:flush-request' }                              // save now (button/backstop)
 //     { type: 'scratch:save-ack',      savedAssets: string[] }       // assets now stored
+//     { type: 'scratch:set-turbo',     value: boolean }              // toggle Turbo Mode
+//     { type: 'scratch:set-theme',     value: 'default'|'high-contrast' } // Color Mode
 //   editor -> parent:
 //     { type: 'scratch:ready' }
 //     { type: 'scratch:loaded',  id? }
 //     { type: 'scratch:dirty',   dirty: true }                       // first edit since save
 //     { type: 'scratch:autosave', json: string, assets: Asset[] }    // Asset = {md5ext,dataFormat,data}
 //     { type: 'scratch:error',   id?, error: string }
+//     { type: 'scratch:state',   turbo: boolean, theme: string }     // initial + after each toggle
 // =====================================================================
 
 import debounce from 'lodash.debounce';
+
+import {setTheme} from '../reducers/theme';
+import {persistTheme} from '../lib/themes/themePersistance';
+
+// Color Mode toggles between these two enabled themes (dark isn't enabled).
+const VALID_THEMES = ['default', 'high-contrast'];
 
 // Replaced at build time by webpack DefinePlugin (see webpack.config.js).
 const PARENT_ORIGIN = process.env.EMBED_PARENT_ORIGIN;
@@ -41,13 +53,23 @@ const isTrustedParent = event =>
     event.origin === PARENT_ORIGIN && event.source === window.parent;
 
 /**
- * Attach the parent-window load/save + autosave bridge to the editor's VM.
- * @param {object} vm - the VirtualMachine instance (provided by GUI onVmInit).
+ * Attach the parent-window load/save + autosave bridge to the editor's store.
+ * @param {object} store - the Redux store (provided by AppStateHOC onStoreInit).
  * @returns {void}
  */
-export default function attachEmbedBridge (vm) {
+export default function attachEmbedBridge (store) {
+    // Same VM instance the editor renders; it lives in the store from creation.
+    const vm = store.getState().scratchGui.vm;
+
     const post = (msg, transfer) =>
         window.parent.postMessage(msg, PARENT_ORIGIN, transfer);
+
+    // Tell the parent the editor's current Turbo/Color-Mode state so its navbar
+    // buttons reflect reality — sent once at attach and after each toggle.
+    const reportState = () => {
+        const state = store.getState().scratchGui;
+        post({type: 'scratch:state', turbo: state.vmStatus.turbo, theme: state.theme.theme});
+    };
 
     // The embedding parent owns the dirty-gated "leave page?" prompt (see
     // ScratchLessonPage). Disable the editor's own guard: project-saver-hoc
@@ -138,6 +160,22 @@ export default function attachEmbedBridge (vm) {
                 for (const md5ext of data.savedAssets || []) uploaded.add(md5ext);
                 break;
 
+            case 'scratch:set-turbo':
+                // Same call the old menu bar made; vm-listener-hoc mirrors the
+                // resulting TURBO_MODE_ON/OFF event into Redux.
+                vm.setTurboMode(!!data.value);
+                reportState();
+                break;
+
+            case 'scratch:set-theme':
+                // Same effect as the old Color Mode menu: update Redux + cookie.
+                if (VALID_THEMES.includes(data.value)) {
+                    store.dispatch(setTheme(data.value));
+                    persistTheme(data.value);
+                    reportState();
+                }
+                break;
+
             default:
                 break;
             }
@@ -161,6 +199,8 @@ export default function attachEmbedBridge (vm) {
         if (document.visibilityState === 'hidden') flushOnHide();
     });
 
-    // Announce readiness so the parent knows it can send the initial project.
+    // Announce readiness so the parent knows it can send the initial project,
+    // and report the initial Turbo/Color-Mode state for the parent's buttons.
     post({type: 'scratch:ready'});
+    reportState();
 }

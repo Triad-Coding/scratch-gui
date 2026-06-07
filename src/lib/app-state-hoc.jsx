@@ -84,6 +84,14 @@ const AppStateHOC = function (WrappedComponent, localesOnly) {
                 enhancer
             );
         }
+        componentDidMount () {
+            if (localesOnly) return;
+            // Hand the live Redux store to the embedding parent's bridge (see
+            // playground/render-gui + embed-bridge). This runs after the inner
+            // GUI.componentDidMount, so the VM is already in the store and the
+            // bridge's window.onbeforeunload reset still wins.
+            if (this.props.onStoreInit) this.props.onStoreInit(this.store);
+        }
         componentDidUpdate (prevProps) {
             if (localesOnly) return;
             if (prevProps.isPlayerOnly !== this.props.isPlayerOnly) {
@@ -97,6 +105,7 @@ const AppStateHOC = function (WrappedComponent, localesOnly) {
             const {
                 isFullScreen, // eslint-disable-line no-unused-vars
                 isPlayerOnly, // eslint-disable-line no-unused-vars
+                onStoreInit, // eslint-disable-line no-unused-vars
                 showTelemetryModal, // eslint-disable-line no-unused-vars
                 ...componentProps
             } = this.props;
@@ -115,6 +124,7 @@ const AppStateHOC = function (WrappedComponent, localesOnly) {
         isFullScreen: PropTypes.bool,
         isPlayerOnly: PropTypes.bool,
         isTelemetryEnabled: PropTypes.bool,
+        onStoreInit: PropTypes.func,
         showTelemetryModal: PropTypes.bool
     };
     return AppStateWrapper;
