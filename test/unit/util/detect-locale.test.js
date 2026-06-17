@@ -52,18 +52,18 @@ describe('detectLocale', () => {
         expect(detectLocale(supportedLocales)).toEqual('en');
     });
 
-    test('uses navigator language property for default if supported', () => {
+    // Localization is URL-driven only: the editor is embedded in an iframe whose
+    // ?locale= follows the parent page's URL, so the browser/region locale must
+    // never leak in. With no URL locale we default to English regardless of
+    // navigator.language (even when it names a supported locale).
+    test('ignores navigator language and defaults to en when no URL locale', () => {
+        Object.defineProperty(window.location,
+            'search',
+            {value: '?name=val'}
+        );
         Object.defineProperty(window.navigator,
             'language',
             {value: 'pt-BR'}
-        );
-        expect(detectLocale(supportedLocales)).toEqual('pt-br');
-    });
-
-    test('ignores navigator language property if unsupported', () => {
-        Object.defineProperty(window.navigator,
-            'language',
-            {value: 'da'}
         );
         expect(detectLocale(supportedLocales)).toEqual('en');
     });
