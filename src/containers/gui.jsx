@@ -166,6 +166,9 @@ const mapStateToProps = state => {
         isShowingProject: getIsShowingProject(loadingState),
         loadingStateVisible: state.scratchGui.modals.loadingProject,
         projectId: state.scratchGui.projectState.projectId,
+        showAddExtension: state.scratchGui.featureConfig.addExtension,
+        showCostumesTab: state.scratchGui.featureConfig.costumesTab,
+        showSoundsTab: state.scratchGui.featureConfig.soundsTab,
         soundsTabVisible: state.scratchGui.editorTab.activeTabIndex === SOUNDS_TAB_INDEX,
         targetIsStage: (
             state.scratchGui.targets.stage &&

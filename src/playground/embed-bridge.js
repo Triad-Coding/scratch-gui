@@ -23,6 +23,10 @@
 //     { type: 'scratch:save-ack',      savedAssets: string[] }       // assets now stored
 //     { type: 'scratch:set-turbo',     value: boolean }              // toggle Turbo Mode
 //     { type: 'scratch:set-theme',     value: 'default'|'high-contrast' } // Color Mode
+//     { type: 'scratch:set-feature-config', config: {costumesTab, soundsTab,
+//                                                     addExtension, addSprite,
+//                                                     addBackdrop} }     // hide editor UI
+//                                                     // (each bool; omitted = shown)
 //   editor -> parent:
 //     { type: 'scratch:ready' }
 //     { type: 'scratch:loaded',  id? }
@@ -35,6 +39,7 @@
 import debounce from 'lodash.debounce';
 
 import {setTheme} from '../reducers/theme';
+import {setFeatureConfig} from '../reducers/feature-config';
 import {persistTheme} from '../lib/themes/themePersistance';
 
 // Color Mode toggles between these two enabled themes (dark isn't enabled).
@@ -174,6 +179,13 @@ export default function attachEmbedBridge (store) {
                     persistTheme(data.value);
                     reportState();
                 }
+                break;
+
+            case 'scratch:set-feature-config':
+                // Parent-resolved per-lesson / per-session UI lockdown: dispatch
+                // into the featureConfig slice; connected components hide the
+                // disabled tabs/buttons.
+                store.dispatch(setFeatureConfig(data.config));
                 break;
 
             default:

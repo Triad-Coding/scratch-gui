@@ -85,6 +85,9 @@ const GUIComponent = props => {
         onTelemetryModalCancel,
         onTelemetryModalOptIn,
         onTelemetryModalOptOut,
+        showAddExtension,
+        showCostumesTab,
+        showSoundsTab,
         soundsTabVisible,
         stageSizeMode,
         targetIsStage,
@@ -219,7 +222,10 @@ const GUIComponent = props => {
                                         />
                                     </Tab>
                                     <Tab
-                                        className={tabClassNames.tab}
+                                        className={classNames(tabClassNames.tab, {
+                                            [styles.hidden]: !showCostumesTab
+                                        })}
+                                        disabled={!showCostumesTab}
                                         onClick={onActivateCostumesTab}
                                     >
                                         <img
@@ -241,7 +247,10 @@ const GUIComponent = props => {
                                         )}
                                     </Tab>
                                     <Tab
-                                        className={tabClassNames.tab}
+                                        className={classNames(tabClassNames.tab, {
+                                            [styles.hidden]: !showSoundsTab
+                                        })}
+                                        disabled={!showSoundsTab}
                                         onClick={onActivateSoundsTab}
                                     >
                                         <img
@@ -270,19 +279,21 @@ const GUIComponent = props => {
                                             vm={vm}
                                         />
                                     </Box>
-                                    <Box className={styles.extensionButtonContainer}>
-                                        <button
-                                            className={styles.extensionButton}
-                                            title={intl.formatMessage(messages.addExtension)}
-                                            onClick={onExtensionButtonClick}
-                                        >
-                                            <img
-                                                className={styles.extensionButtonIcon}
-                                                draggable={false}
-                                                src={addExtensionIcon}
-                                            />
-                                        </button>
-                                    </Box>
+                                    {showAddExtension ? (
+                                        <Box className={styles.extensionButtonContainer}>
+                                            <button
+                                                className={styles.extensionButton}
+                                                title={intl.formatMessage(messages.addExtension)}
+                                                onClick={onExtensionButtonClick}
+                                            >
+                                                <img
+                                                    className={styles.extensionButtonIcon}
+                                                    draggable={false}
+                                                    src={addExtensionIcon}
+                                                />
+                                            </button>
+                                        </Box>
+                                    ) : null}
                                     <Box className={styles.watermark}>
                                         <Watermark />
                                     </Box>
@@ -377,7 +388,10 @@ GUIComponent.propTypes = {
     onTelemetryModalOptOut: PropTypes.func,
     onToggleLoginOpen: PropTypes.func,
     renderLogin: PropTypes.func,
+    showAddExtension: PropTypes.bool,
     showComingSoon: PropTypes.bool,
+    showCostumesTab: PropTypes.bool,
+    showSoundsTab: PropTypes.bool,
     soundsTabVisible: PropTypes.bool,
     stageSizeMode: PropTypes.oneOf(Object.keys(STAGE_SIZE_MODES)),
     targetIsStage: PropTypes.bool,
@@ -406,7 +420,10 @@ GUIComponent.defaultProps = {
     isShared: false,
     isTotallyNormal: false,
     loading: false,
+    showAddExtension: true,
     showComingSoon: false,
+    showCostumesTab: true,
+    showSoundsTab: true,
     stageSizeMode: STAGE_SIZE_MODES.large
 };
 

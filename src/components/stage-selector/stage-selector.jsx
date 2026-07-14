@@ -56,6 +56,7 @@ const StageSelector = props => {
         onNewBackdropClick,
         onSurpriseBackdropClick,
         onEmptyBackdropClick,
+        showAddButton,
         ...componentProps
     } = props;
     return (
@@ -94,7 +95,7 @@ const StageSelector = props => {
                 />
             </div>
             <div className={styles.count}>{backdropCount}</div>
-            <ActionMenu
+            {showAddButton ? (<ActionMenu
                 className={styles.addButton}
                 img={backdropIcon}
                 moreButtons={[
@@ -124,7 +125,7 @@ const StageSelector = props => {
                 title={intl.formatMessage(messages.addBackdropFromLibrary)}
                 tooltipPlace={isRtl(intl.locale) ? 'right' : 'left'}
                 onClick={onNewBackdropClick}
-            />
+            />) : null}
         </Box>
     );
 };
@@ -146,7 +147,12 @@ StageSelector.propTypes = {
     raised: PropTypes.bool.isRequired,
     receivedBlocks: PropTypes.bool.isRequired,
     selected: PropTypes.bool.isRequired,
+    showAddButton: PropTypes.bool,
     url: PropTypes.string
+};
+
+StageSelector.defaultProps = {
+    showAddButton: true
 };
 
 export default injectIntl(StageSelector);

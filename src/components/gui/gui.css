@@ -91,6 +91,12 @@
     white-space: nowrap;
 }
 
+/* A tab hidden by feature config: kept mounted (so react-tabs' fixed Tab/Panel
+   index mapping stays intact) but removed from view and made unselectable. */
+.tab.hidden {
+    display: none;
+}
+
 [dir="ltr"] .tab {
     margin-left: -0.5rem;
 }

@@ -64,6 +64,7 @@ const SpriteSelectorComponent = function (props) {
         onSurpriseSpriteClick,
         raised,
         selectedId,
+        showAddButton,
         spriteFileInput,
         sprites,
         stageSize,
@@ -112,7 +113,7 @@ const SpriteSelectorComponent = function (props) {
                 onExportSprite={onExportSprite}
                 onSelectSprite={onSelectSprite}
             />
-            <ActionMenu
+            {showAddButton ? (<ActionMenu
                 className={styles.addButton}
                 img={spriteIcon}
                 moreButtons={[
@@ -141,7 +142,7 @@ const SpriteSelectorComponent = function (props) {
                 title={intl.formatMessage(messages.addSpriteFromLibrary)}
                 tooltipPlace={isRtl(intl.locale) ? 'right' : 'left'}
                 onClick={onNewSpriteClick}
-            />
+            />) : null}
         </Box>
     );
 };
@@ -172,6 +173,7 @@ SpriteSelectorComponent.propTypes = {
     onSurpriseSpriteClick: PropTypes.func,
     raised: PropTypes.bool,
     selectedId: PropTypes.string,
+    showAddButton: PropTypes.bool,
     spriteFileInput: PropTypes.func,
     sprites: PropTypes.shape({
         id: PropTypes.shape({
@@ -187,6 +189,10 @@ SpriteSelectorComponent.propTypes = {
         })
     }),
     stageSize: PropTypes.oneOf(Object.keys(STAGE_DISPLAY_SIZES)).isRequired
+};
+
+SpriteSelectorComponent.defaultProps = {
+    showAddButton: true
 };
 
 export default injectIntl(SpriteSelectorComponent);
