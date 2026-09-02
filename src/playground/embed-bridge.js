@@ -37,6 +37,10 @@
 //                                                     // absent opcodes no-op silently — a
 //                                                     // disabled category means the block
 //                                                     // really is not there.
+//     { type: 'scratch:set-tab',       tab: 'code'|'costumes'|'sounds' } // switch tabs. Sent
+//                                                     // before a highlight whose palette is not
+//                                                     // on screen. A tab the feature config has
+//                                                     // hidden is refused.
 //   editor -> parent:
 //     { type: 'scratch:ready' }
 //     { type: 'scratch:loaded',  id? }
@@ -44,6 +48,12 @@
 //     { type: 'scratch:autosave', json: string, assets: Asset[] }    // Asset = {md5ext,dataFormat,data}
 //     { type: 'scratch:error',   id?, error: string }
 //     { type: 'scratch:state',   turbo: boolean, theme: string }     // initial + after each toggle
+//     { type: 'scratch:tab-changed', tab: 'code'|'costumes'|'sounds' } // initial + on every
+//                                                     // change, however it was made. The parent
+//                                                     // draws its instructions rail OVER this
+//                                                     // editor, so it needs to know when the
+//                                                     // student is on the tab that can least
+//                                                     // afford the width (Costumes).
 // =====================================================================
 
 import debounce from 'lodash.debounce';
@@ -51,10 +61,38 @@ import debounce from 'lodash.debounce';
 import {setTheme} from '../reducers/theme';
 import {setFeatureConfig} from '../reducers/feature-config';
 import {highlightBlock} from '../reducers/highlight';
+import {
+    activateTab,
+    BLOCKS_TAB_INDEX,
+    COSTUMES_TAB_INDEX,
+    SOUNDS_TAB_INDEX
+} from '../reducers/editor-tab';
 import {persistTheme} from '../lib/themes/themePersistance';
 
 // Color Mode toggles between these two enabled themes (dark isn't enabled).
 const VALID_THEMES = ['default', 'high-contrast'];
+
+// The editor's tabs, as the wire names them. react-tabs identifies a tab by its
+// position in the TabList, which is an implementation detail of this editor's
+// markup and not something the parent should ever have to know — so the protocol
+// carries a name and the two translations live here, next to each other, where
+// they cannot drift apart.
+const TAB_NAMES = {
+    [BLOCKS_TAB_INDEX]: 'code',
+    [COSTUMES_TAB_INDEX]: 'costumes',
+    [SOUNDS_TAB_INDEX]: 'sounds'
+};
+const TAB_INDICES = {
+    code: BLOCKS_TAB_INDEX,
+    costumes: COSTUMES_TAB_INDEX,
+    sounds: SOUNDS_TAB_INDEX
+};
+// Which feature-config flag gates each tab. Code has none — it is the tab
+// everything falls back to, and hiding it was never on offer.
+const TAB_FEATURE_FLAGS = {
+    costumes: 'costumesTab',
+    sounds: 'soundsTab'
+};
 
 // Replaced at build time by webpack DefinePlugin (see webpack.config.js).
 const PARENT_ORIGIN = process.env.EMBED_PARENT_ORIGIN;
@@ -85,6 +123,28 @@ export default function attachEmbedBridge (store) {
     const reportState = () => {
         const state = store.getState().scratchGui;
         post({type: 'scratch:state', turbo: state.vmStatus.turbo, theme: state.theme.theme});
+    };
+
+    // Tell the parent which tab the student is on. Unlike Turbo and Color Mode
+    // — which only the parent can now change, so it can report them from its own
+    // handlers — the tab is switched from inside the editor: the tab bar, the
+    // sprite selector's Costumes shortcut, and adding a costume all reach
+    // ACTIVATE_TAB without the parent's involvement. A store subscription is the
+    // only thing that sees all of them.
+    let lastTabIndex = null;
+    const reportTab = () => {
+        const index = store.getState().scratchGui.editorTab.activeTabIndex;
+        if (index === lastTabIndex) return; // one integer compare per action
+        lastTabIndex = index;
+        if (TAB_NAMES[index]) post({type: 'scratch:tab-changed', tab: TAB_NAMES[index]});
+    };
+
+    // True when the parent may switch to this tab: a name we know, and not one
+    // this lesson's feature config has hidden.
+    const tabAllowed = name => {
+        if (typeof TAB_INDICES[name] !== 'number') return false;
+        const flag = TAB_FEATURE_FLAGS[name];
+        return !flag || store.getState().scratchGui.featureConfig[flag] !== false;
     };
 
     // The embedding parent owns the dirty-gated "leave page?" prompt (see
@@ -210,6 +270,20 @@ export default function attachEmbedBridge (store) {
                 }
                 break;
 
+            case 'scratch:set-tab':
+                // The parent asks for a tab by name. It sends this before a
+                // highlight when the palette is not the visible tab, which is
+                // the one way `scratch:highlight-block` can appear to do
+                // nothing: the highlight lands correctly on a Blocks component
+                // that is mounted but off-screen.
+                //
+                // A tab this lesson has hidden is refused rather than obeyed —
+                // feature config exists to keep a student out of the paint
+                // editor, and honouring the request would put them there with a
+                // tab bar that no longer shows the tab they are on.
+                if (tabAllowed(data.tab)) store.dispatch(activateTab(TAB_INDICES[data.tab]));
+                break;
+
             default:
                 break;
             }
@@ -237,4 +311,10 @@ export default function attachEmbedBridge (store) {
     // and report the initial Turbo/Color-Mode state for the parent's buttons.
     post({type: 'scratch:ready'});
     reportState();
+
+    // Report the starting tab before subscribing, so the parent's first
+    // tab-changed always describes a settled editor and the subscription only
+    // ever carries real changes.
+    reportTab();
+    store.subscribe(reportTab);
 }
