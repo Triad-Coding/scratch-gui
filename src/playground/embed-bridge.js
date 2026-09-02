@@ -16,6 +16,16 @@
 // max-wait) and also flushed when the tab is hidden/closed.
 //
 // Protocol
+//
+// THIS BLOCK IS THE AUTHORITY, AND IT HAS THREE MIRRORS THAT MUST MOVE WITH IT:
+//   1. the `switch` below in this file — the implementation;
+//   2. edu-platform docs/lesson-platform.md, "Scratch postMessage protocol" — the
+//      per-message tables;
+//   3. edu-platform docs/scratch-editor.md, "Save/load protocol" — the narrative.
+// A message added here and nowhere else is invisible to the people maintaining the
+// parent: `scratch:set-feature-config` shipped absent from both docs for its whole life
+// that way. Update all four in the same change.
+//
 //   parent -> editor:
 //     { type: 'scratch:load',          id?, payload: ArrayBuffer }   // .sb3 bytes
 //     { type: 'scratch:no-project' }                                 // nothing saved yet
