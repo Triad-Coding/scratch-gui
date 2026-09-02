@@ -29,6 +29,7 @@ import {activateCustomProcedures, deactivateCustomProcedures} from '../reducers/
 import {setConnectionModalExtensionId} from '../reducers/connection-modal';
 import {updateMetrics} from '../reducers/workspace-metrics';
 import {isTimeTravel2020} from '../reducers/time-travel';
+import {highlightInitialState} from '../reducers/highlight';
 
 import {
     activateTab,
@@ -43,6 +44,16 @@ const addFunctionListener = (object, property, callback) => {
         return result;
     };
 };
+
+// Applied to the highlighted palette block's SVG group. Styled in
+// components/blocks/blocks.css, under a :global() because the element belongs to
+// scratch-blocks rather than to any React component.
+const HIGHLIGHT_CLASS = 'triadHighlightedBlock';
+
+// How far above the block to leave when scrolling it into view, in flyout
+// workspace units. Enough that the block does not sit flush against the top
+// edge and read as cut off.
+const HIGHLIGHT_SCROLL_MARGIN = 24;
 
 const DroppableBlocks = DropAreaHOC([
     DragConstants.BACKPACK_CODE
@@ -77,7 +88,8 @@ class Blocks extends React.Component {
             'onWorkspaceUpdate',
             'onWorkspaceMetricsChange',
             'setBlocks',
-            'setLocale'
+            'setLocale',
+            'applyBlockHighlight'
         ]);
         this.ScratchBlocks.prompt = this.handlePromptStart;
         this.ScratchBlocks.statusButtonCallback = this.handleConnectionModalStart;
@@ -138,12 +150,30 @@ class Blocks extends React.Component {
         addFunctionListener(this.workspace, 'translate', this.onWorkspaceMetricsChange);
         addFunctionListener(this.workspace, 'zoom', this.onWorkspaceMetricsChange);
 
+        // FORK: re-apply the parent's palette-block highlight after every
+        // flyout re-render.
+        //
+        // Five paths re-render the flyout, and they do NOT share a React-visible
+        // funnel: updateToolbox() covers three, but Toolbox.refreshSelection()
+        // (variable create/rename/delete, and handleCustomProceduresClose below)
+        // reaches showAll_ without touching the React lifecycle at all. What all
+        // five DO share is Flyout.show(), which rebuilds the block list — so one
+        // listener there covers every case, including the ones that bypass us.
+        //
+        // The sixth path is a theme change, which remounts <Blocks> outright via
+        // its key in gui.jsx and takes the DOM highlight with it. That is why the
+        // apply below is in componentDidMount and not only in componentDidUpdate:
+        // our own scratch:set-theme would otherwise silently wipe the highlight.
+        addFunctionListener(this.workspace.getFlyout(), 'show', this.applyBlockHighlight);
+
         this.attachVM();
         // Only update blocks/vm locale when visible to avoid sizing issues
         // If locale changes while not visible it will get handled in didUpdate
         if (this.props.isVisible) {
             this.setLocale();
         }
+
+        this.applyBlockHighlight();
     }
     shouldComponentUpdate (nextProps, nextState) {
         return (
@@ -154,13 +184,26 @@ class Blocks extends React.Component {
             this.props.customProceduresVisible !== nextProps.customProceduresVisible ||
             this.props.locale !== nextProps.locale ||
             this.props.anyModalVisible !== nextProps.anyModalVisible ||
-            this.props.stageSize !== nextProps.stageSize
+            this.props.stageSize !== nextProps.stageSize ||
+            // FORK: this list is an explicit whitelist, so a new redux prop
+            // produces no componentDidUpdate at all unless it is named here.
+            // highlightedTime is what makes a REPEAT request for the same opcode
+            // a change worth re-rendering for.
+            this.props.highlightedOpcode !== nextProps.highlightedOpcode ||
+            this.props.highlightedTime !== nextProps.highlightedTime
         );
     }
     componentDidUpdate (prevProps) {
         // If any modals are open, call hideChaff to close z-indexed field editors
         if (this.props.anyModalVisible && !prevProps.anyModalVisible) {
             this.ScratchBlocks.hideChaff();
+        }
+
+        // FORK: the parent asked us to point at a (possibly different, possibly
+        // repeated) palette block.
+        if (this.props.highlightedOpcode !== prevProps.highlightedOpcode ||
+            this.props.highlightedTime !== prevProps.highlightedTime) {
+            this.applyBlockHighlight();
         }
 
         // Only rerender the toolbox when the blocks are visible and the xml is
@@ -488,6 +531,78 @@ class Blocks extends React.Component {
             this.workspace.toolbox_.setSelectedCategoryById(categoryId);
         });
     }
+    /*
+     * FORK: outline one palette block and scroll it into view, on the parent
+     * platform's request (embed-bridge.js, `scratch:highlight-block`).
+     *
+     * The block is found by OPCODE, not by id: make-toolbox-xml.js sets an `id=`
+     * attribute on only a handful of palette blocks and the rest get a generated
+     * one, so an id is not something a lesson author could ever write down.
+     *
+     * getTopBlocks(false) on the flyout's workspace is enough to find any block
+     * in the palette, with no need to navigate to its category first: Scratch's
+     * toolbox is ONE continuous flyout holding every category's blocks at once
+     * (Toolbox.showAll_), and the category menu is a set of scroll anchors into
+     * it. Scrolling to the block therefore also updates the selected category by
+     * itself — Flyout.selectCategoryByScrollPosition does that off the scroll
+     * event, so there is no opcode-to-category table to keep in step.
+     *
+     * Deliberately NOT glowBlock: that throws on an unknown id, and it is the
+     * same yellow running-glow the VM drives through onBlockGlowOn, so a
+     * highlight would be indistinguishable from "this block is running" and
+     * would fight a running project for the same element.
+     */
+    applyBlockHighlight () {
+        if (!this.workspace) return;
+        const flyout = this.workspace.getFlyout();
+        const flyoutWorkspace = flyout && flyout.getWorkspace();
+        if (!flyoutWorkspace) return;
+
+        const blocks = flyoutWorkspace.getTopBlocks(false);
+
+        // Clear first, unconditionally. Flyout blocks are RECYCLED — show()
+        // reuses the BlockSVG keyed by id-or-type (flyout_base.js
+        // clearOldBlocks_/show) — and a recycled block keeps the class attribute
+        // it had last time, so a stale outline would survive a re-render and
+        // accumulate a second one.
+        let cleared = false;
+        for (const block of blocks) {
+            const root = block.getSvgRoot();
+            if (root && root.classList.contains(HIGHLIGHT_CLASS)) {
+                root.classList.remove(HIGHLIGHT_CLASS);
+                cleared = true;
+            }
+        }
+
+        const opcode = this.props.highlightedOpcode;
+        if (!opcode) return;
+
+        const target = blocks.find(block => block.type === opcode);
+        if (!target) {
+            // A legitimate answer, not an error: a disabled category means the
+            // block genuinely is not in this student's palette (feature config
+            // can remove the extension blocks). Say nothing and do nothing.
+            return;
+        }
+
+        const root = target.getSvgRoot();
+        if (!root) return;
+
+        // Force a reflow between the remove and the add so that re-sending the
+        // SAME opcode restarts the attention animation. Without it the browser
+        // coalesces both class changes into one style recalculation and the
+        // animation never re-triggers — which is precisely the case a student
+        // clicking the same phrase twice hits.
+        if (cleared) root.getBoundingClientRect();
+        root.classList.add(HIGHLIGHT_CLASS);
+
+        // Scroll the block itself into view rather than its category, which is
+        // both more precise and how the category menu ends up correct for free.
+        const y = target.getRelativeToSurfaceXY().y;
+        this.workspace.toolbox_.setFlyoutScrollPos(
+            Math.max(0, y - HIGHLIGHT_SCROLL_MARGIN)
+        );
+    }
     setBlocks (blocks) {
         this.blocks = blocks;
     }
@@ -551,6 +666,8 @@ class Blocks extends React.Component {
             canUseCloud,
             customProceduresVisible,
             extensionLibraryVisible,
+            highlightedOpcode,
+            highlightedTime,
             options,
             stageSize,
             vm,
@@ -616,6 +733,8 @@ Blocks.propTypes = {
     canUseCloud: PropTypes.bool,
     customProceduresVisible: PropTypes.bool,
     extensionLibraryVisible: PropTypes.bool,
+    highlightedOpcode: PropTypes.string,
+    highlightedTime: PropTypes.number,
     isRtl: PropTypes.bool,
     isVisible: PropTypes.bool,
     locale: PropTypes.string.isRequired,
@@ -676,6 +795,11 @@ const mapStateToProps = state => ({
         state.scratchGui.mode.isFullScreen
     ),
     extensionLibraryVisible: state.scratchGui.modals.extensionLibrary,
+    // FORK: the palette block the parent platform's lesson instructions are
+    // pointing at. Falls back to the slice's initial state so a host store
+    // assembled without this reducer still renders.
+    highlightedOpcode: (state.scratchGui.highlight || highlightInitialState).highlightedOpcode,
+    highlightedTime: (state.scratchGui.highlight || highlightInitialState).highlightedTime,
     isRtl: state.locales.isRtl,
     locale: state.locales.locale,
     messages: state.locales.messages,

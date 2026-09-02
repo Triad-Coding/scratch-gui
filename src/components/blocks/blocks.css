@@ -97,3 +97,51 @@
     min-width: auto;
     min-height: auto;
 }
+
+/*
+    FORK: the palette-block highlight. containers/blocks.jsx puts
+    .triadHighlightedBlock on the block's SVG group when the parent platform's
+    lesson instructions point at it.
+
+    Under a :global() and reaching into scratch-blocks' own class names, for the
+    same reason the category-label rule above is here: the element belongs to
+    scratch-blocks, and changing it there would mean rebuilding a
+    Closure-compiled package to restyle two properties.
+
+    Only stroke and filter — never fill. setColour writes fill as a presentation
+    ATTRIBUTE, so overriding it from CSS would need !important and would break
+    the block's identity as its category colour, which is the one thing the
+    student is scanning the palette for.
+*/
+.blocks :global(.triadHighlightedBlock) :global(.blocklyPath) {
+    stroke: $block-highlight;
+    stroke-width: 3px;
+    /*
+        A dark halo outside the white stroke, so the outline still reads against
+        the flyout's light background and against the pale category colours
+        (events yellow, control orange) where white alone nearly disappears.
+    */
+    filter: drop-shadow(0 0 3px $block-highlight-halo);
+}
+
+/*
+    A short pulse rather than a permanent throb: it has to catch the eye once,
+    then get out of the way of a student reading the block. blocks.jsx forces a
+    reflow between removing and re-adding the class so that clicking the same
+    phrase twice replays this.
+*/
+.blocks :global(.triadHighlightedBlock) {
+    animation: triad-block-attention 1.1s ease-out 2;
+}
+
+@keyframes triad-block-attention {
+    0% { opacity: 1; }
+    45% { opacity: 0.45; }
+    100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .blocks :global(.triadHighlightedBlock) {
+        animation: none;
+    }
+}

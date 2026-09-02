@@ -46,3 +46,13 @@ $extensions-transparent: hsla(163, 85%, 40%, 0.35); /* 35% transparent version o
 $extensions-light: hsla(163, 57%, 85%, 1); /* opaque version of extensions-transparent, on white bg */
 
 $drop-highlight: hsla(215, 100%, 77%, 1); /* lighter than motion-primary */
+
+/*
+    Outline drawn around a palette block the parent platform's lesson
+    instructions are pointing at (see containers/blocks.jsx). Deliberately NOT
+    the VM's yellow running-glow: a highlight that looked like "this block is
+    running" would be unreadable next to a running project. White reads on all
+    ten category colours, which is why it is a lightness rather than a hue.
+*/
+$block-highlight: hsla(0, 0%, 100%, 1);
+$block-highlight-halo: hsla(0, 0%, 0%, 0.45);

@@ -41,7 +41,7 @@ const baseConfig = new ScratchWebpackConfigBuilder(
         'process.env.GA_ID': `"${process.env.GA_ID || 'UA-000000-01'}"`,
         'process.env.GTM_ENV_AUTH': `"${process.env.GTM_ENV_AUTH || ''}"`,
         'process.env.GTM_ID': process.env.GTM_ID ? `"${process.env.GTM_ID}"` : null,
-        'process.env.EMBED_PARENT_ORIGIN': `"${process.env.EMBED_PARENT_ORIGIN || 'https://app.yourdomain.com'}"`,
+        'process.env.EMBED_PARENT_ORIGIN': `"${process.env.EMBED_PARENT_ORIGIN || 'https://app.yourdomain.com'}"`
     }))
     .addPlugin(new CopyWebpackPlugin({
         patterns: [

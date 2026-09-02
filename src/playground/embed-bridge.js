@@ -27,6 +27,16 @@
 //                                                     addExtension, addSprite,
 //                                                     addBackdrop} }     // hide editor UI
 //                                                     // (each bool; omitted = shown)
+//     { type: 'scratch:highlight-block', opcode: string }             // outline one palette
+//                                                     // block, e.g. 'motion_movesteps',
+//                                                     // and scroll it into view. Sent when a
+//                                                     // student clicks a block named inline in
+//                                                     // the lesson instructions. An opcode, not
+//                                                     // a block id: most palette blocks have a
+//                                                     // generated id. Unknown or currently-
+//                                                     // absent opcodes no-op silently — a
+//                                                     // disabled category means the block
+//                                                     // really is not there.
 //   editor -> parent:
 //     { type: 'scratch:ready' }
 //     { type: 'scratch:loaded',  id? }
@@ -40,6 +50,7 @@ import debounce from 'lodash.debounce';
 
 import {setTheme} from '../reducers/theme';
 import {setFeatureConfig} from '../reducers/feature-config';
+import {highlightBlock} from '../reducers/highlight';
 import {persistTheme} from '../lib/themes/themePersistance';
 
 // Color Mode toggles between these two enabled themes (dark isn't enabled).
@@ -186,6 +197,17 @@ export default function attachEmbedBridge (store) {
                 // into the featureConfig slice; connected components hide the
                 // disabled tabs/buttons.
                 store.dispatch(setFeatureConfig(data.config));
+                break;
+
+            case 'scratch:highlight-block':
+                // A student clicked a block named inline in the lesson
+                // instructions. Validate only the shape here — whether the
+                // opcode names a block that exists is blocks.jsx's business, and
+                // "not there" is a legitimate answer when the lesson has that
+                // category disabled.
+                if (typeof data.opcode === 'string' && data.opcode) {
+                    store.dispatch(highlightBlock(data.opcode));
+                }
                 break;
 
             default:

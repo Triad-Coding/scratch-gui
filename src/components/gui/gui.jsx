@@ -57,8 +57,6 @@ const GUIComponent = props => {
         alertsVisible,
         basePath,
         backdropLibraryVisible,
-        backpackHost,
-        backpackVisible,
         blocksId,
         blocksTabVisible,
         cardsVisible,
@@ -108,7 +106,11 @@ const GUIComponent = props => {
         'onClickAbout', 'onClickAccountNav', 'onCloseAccountNav', 'onLogOut',
         'onOpenRegistration', 'onToggleLoginOpen', 'onClickLogo',
         'onProjectTelemetryEvent', 'onSeeCommunity', 'onShare',
-        'onStartSelectingFileUpload', 'showComingSoon'
+        'onStartSelectingFileUpload', 'showComingSoon',
+        // The backpack is not rendered in the embedded editor either. Omitted
+        // rather than destructured-and-ignored, which is what they were, and
+        // what test:lint fails on.
+        'backpackHost', 'backpackVisible'
     ]);
     if (children) {
         return <Box {...componentProps}>{children}</Box>;

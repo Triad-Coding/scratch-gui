@@ -8,6 +8,7 @@ import customProceduresReducer, {customProceduresInitialState} from './custom-pr
 import blockDragReducer, {blockDragInitialState} from './block-drag';
 import editorTabReducer, {editorTabInitialState} from './editor-tab';
 import featureConfigReducer, {featureConfigInitialState} from './feature-config';
+import highlightReducer, {highlightInitialState} from './highlight';
 import hoveredTargetReducer, {hoveredTargetInitialState} from './hovered-target';
 import menuReducer, {menuInitialState} from './menus';
 import micIndicatorReducer, {micIndicatorInitialState} from './mic-indicator';
@@ -45,6 +46,7 @@ const guiInitialState = {
     customProcedures: customProceduresInitialState,
     editorTab: editorTabInitialState,
     featureConfig: featureConfigInitialState,
+    highlight: highlightInitialState,
     mode: modeInitialState,
     hoveredTarget: hoveredTargetInitialState,
     stageSize: stageSizeInitialState,
@@ -147,6 +149,7 @@ const guiReducer = combineReducers({
     customProcedures: customProceduresReducer,
     editorTab: editorTabReducer,
     featureConfig: featureConfigReducer,
+    highlight: highlightReducer,
     mode: modeReducer,
     hoveredTarget: hoveredTargetReducer,
     stageSize: stageSizeReducer,
