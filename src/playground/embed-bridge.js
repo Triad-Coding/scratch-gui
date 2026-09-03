@@ -52,7 +52,16 @@
 //                                                     // on screen. A tab the feature config has
 //                                                     // hidden is refused.
 //   editor -> parent:
-//     { type: 'scratch:ready' }
+//     { type: 'scratch:ready' }                                      // REPEATED every 250ms
+//                                                     // (with the state+tab reports below) until
+//                                                     // the parent sends anything back, capped at
+//                                                     // 15s. Our iframe ships in the parent's SSR
+//                                                     // HTML, so we boot before its listener
+//                                                     // exists; a single announcement is a race we
+//                                                     // lose on a cold cache, and losing it means
+//                                                     // autosave is never armed. Parents must
+//                                                     // therefore tolerate a repeat — see
+//                                                     // ScratchLessonPage's bootInFlight guard.
 //     { type: 'scratch:loaded',  id? }
 //     { type: 'scratch:dirty',   dirty: true }                       // first edit since save
 //     { type: 'scratch:autosave', json: string, assets: Asset[] }    // Asset = {md5ext,dataFormat,data}
@@ -173,6 +182,10 @@ export default function attachEmbedBridge (store) {
     let loading = false;
     let dirty = false; // has unflushed editor changes (handed to parent on flush)
 
+    // Has the parent ever spoken to us? The boot announcement is repeated until
+    // it has — see announceUntilHeard() at the bottom of this function.
+    let parentHeard = false;
+
     // md5exts known to be stored in our backend, so they aren't re-uploaded.
     // Seeded from a loaded project (those assets came from the backend); left
     // empty for a fresh project so its default assets upload once on first save.
@@ -214,6 +227,10 @@ export default function attachEmbedBridge (store) {
 
     window.addEventListener('message', async event => {
         if (!isTrustedParent(event)) return; // origin + source check
+        // Any message at all proves the parent is listening, so the boot
+        // announcement has landed and does not need repeating. Set before the
+        // shape check: a message we do not understand still proves it is there.
+        parentHeard = true;
         const data = event.data;
         if (!data || typeof data.type !== 'string') return; // shape check
 
@@ -319,12 +336,50 @@ export default function attachEmbedBridge (store) {
 
     // Announce readiness so the parent knows it can send the initial project,
     // and report the initial Turbo/Color-Mode state for the parent's buttons.
-    post({type: 'scratch:ready'});
-    reportState();
+    // Report the starting tab in the same breath, so the parent's first
+    // tab-changed always describes a settled editor and the subscription below
+    // only ever carries real changes.
+    const announce = () => {
+        post({type: 'scratch:ready'});
+        reportState();
+        reportTab();
+    };
 
-    // Report the starting tab before subscribing, so the parent's first
-    // tab-changed always describes a settled editor and the subscription only
-    // ever carries real changes.
-    reportTab();
+    /**
+     * Repeat the boot announcement until the parent answers.
+     *
+     * The parent cannot listen until its own JS has hydrated, and we start
+     * booting the moment our iframe is parsed — which is BEFORE that, because
+     * the iframe ships in the parent's server-rendered HTML. So a single
+     * fire-and-forget announcement is a race, and on a cold cache we win it:
+     * measured at ~2.28s to here against ~2.38s for the parent's listener.
+     *
+     * Losing it is silent and total. The parent answers `scratch:ready` with
+     * the feature config and then `scratch:load`/`scratch:no-project` — and
+     * `armed` only becomes true on one of those two, so an unanswered
+     * announcement means autosave is never armed and NOTHING the student does
+     * is ever saved, with no error anywhere to say so.
+     *
+     * The parent's reply is synchronous with its handler, so in practice this
+     * stops after the first repeat; the cap is only there so a genuinely absent
+     * parent cannot leave a timer running for the life of the page.
+     * @returns {void}
+     */
+    const announceUntilHeard = () => {
+        const RETRY_MS = 250;
+        const GIVE_UP_MS = 15000;
+        let waited = 0;
+        announce();
+        const timer = setInterval(() => {
+            waited += RETRY_MS;
+            if (parentHeard || waited >= GIVE_UP_MS) {
+                clearInterval(timer);
+                return;
+            }
+            announce();
+        }, RETRY_MS);
+    };
+
+    announceUntilHeard();
     store.subscribe(reportTab);
 }
