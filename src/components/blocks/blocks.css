@@ -112,8 +112,17 @@
     ATTRIBUTE, so overriding it from CSS would need !important and would break
     the block's identity as its category colour, which is the one thing the
     student is scanning the palette for.
+
+    A CHILD combinator, not a descendant one. A palette block's SVG group also
+    contains the paths of every block nested inside it — the number oval in
+    `move 10 steps` is 2 of its 3 .blocklyPath elements, `say Hello! for 2
+    seconds` 4 of its 5 — and a descendant selector strokes all of them. The
+    symptom is subtler than a visible second outline: the inner oval's own
+    category ring is replaced by the same white stroke and the halo bleeds in
+    behind it, so it reads as the number box having gone blurry, on precisely the
+    block the student was just told to look at.
 */
-.blocks :global(.triadHighlightedBlock) :global(.blocklyPath) {
+.blocks :global(.triadHighlightedBlock) > :global(.blocklyPath) {
     stroke: $block-highlight;
     stroke-width: 3px;
     /*

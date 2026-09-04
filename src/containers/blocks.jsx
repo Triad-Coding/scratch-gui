@@ -89,7 +89,9 @@ class Blocks extends React.Component {
             'onWorkspaceMetricsChange',
             'setBlocks',
             'setLocale',
-            'applyBlockHighlight'
+            'applyBlockHighlight',
+            'paintBlockHighlight',
+            'scrollFlyoutToBlock'
         ]);
         this.ScratchBlocks.prompt = this.handlePromptStart;
         this.ScratchBlocks.statusButtonCallback = this.handleConnectionModalStart;
@@ -150,8 +152,10 @@ class Blocks extends React.Component {
         addFunctionListener(this.workspace, 'translate', this.onWorkspaceMetricsChange);
         addFunctionListener(this.workspace, 'zoom', this.onWorkspaceMetricsChange);
 
-        // FORK: re-apply the parent's palette-block highlight after every
-        // flyout re-render.
+        // FORK: re-paint the parent's palette-block highlight after every flyout
+        // re-render. PAINT ONLY — see the ownership note on applyBlockHighlight;
+        // scrolling from here is what teleported the palette out from under a
+        // student renaming a variable.
         //
         // Five paths re-render the flyout, and they do NOT share a React-visible
         // funnel: updateToolbox() covers three, but Toolbox.refreshSelection()
@@ -164,7 +168,9 @@ class Blocks extends React.Component {
         // its key in gui.jsx and takes the DOM highlight with it. That is why the
         // apply below is in componentDidMount and not only in componentDidUpdate:
         // our own scratch:set-theme would otherwise silently wipe the highlight.
-        addFunctionListener(this.workspace.getFlyout(), 'show', this.applyBlockHighlight);
+        // Mount is also the one re-render where scrolling IS ours to do — there
+        // is no prior scroll position to preserve and no other authority awake.
+        addFunctionListener(this.workspace.getFlyout(), 'show', this.paintBlockHighlight);
 
         this.attachVM();
         // Only update blocks/vm locale when visible to avoid sizing issues
@@ -232,6 +238,24 @@ class Blocks extends React.Component {
                 this.props.vm.refreshWorkspace();
                 this.requestToolboxUpdate();
             }
+
+            // FORK: the third and last place the highlight is allowed to move
+            // the palette (see the ownership note on applyBlockHighlight).
+            //
+            // Hiding the Code tab loses the toolbox's own state: coming back
+            // repopulates it, which resets the selected category to the first
+            // one and the scroll to the top. updateToolbox()'s save/restore
+            // cannot recover that — it reads the selection BEFORE its own
+            // rebuild, and by then the reset has already happened, so it
+            // faithfully restores "Motion, top". Measured: highlight
+            // looks_sayforsecs at 967, Code -> Costumes -> Code, and the student
+            // is back at Motion with the outlined block ~900px below the fold.
+            //
+            // A highlight is a standing instruction about where the student
+            // should be looking, so re-assert it. Through withToolboxUpdates
+            // because the rebuild above is queued on a setTimeout(0) and would
+            // otherwise land after us and win.
+            this.withToolboxUpdates(() => this.applyBlockHighlight());
 
             window.dispatchEvent(new Event('resize'));
         } else {
@@ -535,6 +559,24 @@ class Blocks extends React.Component {
      * FORK: outline one palette block and scroll it into view, on the parent
      * platform's request (embed-bridge.js, `scratch:highlight-block`).
      *
+     * PAINTING AND SCROLLING ARE SEPARATE, AND ONLY ONE OF THEM IS OURS TO DO
+     * WHENEVER WE LIKE. Painting has to be re-done on every flyout re-render,
+     * because flyout blocks are recycled and a recycled block keeps the class it
+     * had last time. Scrolling must happen ONLY when the parent asks for a
+     * highlight — the flyout re-renders for reasons that have nothing to do with
+     * us, and re-scrolling on those is how a student who names a new variable
+     * gets teleported from the Variables palette to the top of Motion
+     * (`refreshToolboxSelection_` -> `showAll_` -> `Flyout.show()`, measured at
+     * 100% on create, rename and delete). The other rebuild paths run through
+     * updateToolbox(), which restores the scroll itself on a setTimeout(0); when
+     * we also scrolled, which of the two won depended on which path fired.
+     *
+     * So: `paintBlockHighlight` is hooked to every `Flyout.show()`, and nothing
+     * else. `scrollFlyoutToBlock` is called only from `applyBlockHighlight`,
+     * which has exactly three callers — mount, a new request from the parent,
+     * and the Code tab becoming visible again, where the toolbox has just been
+     * repopulated from scratch and there is no earlier position left to keep.
+     *
      * The block is found by OPCODE, not by id: make-toolbox-xml.js sets an `id=`
      * attribute on only a handful of palette blocks and the rest get a generated
      * one, so an id is not something a lesson author could ever write down.
@@ -553,10 +595,20 @@ class Blocks extends React.Component {
      * would fight a running project for the same element.
      */
     applyBlockHighlight () {
-        if (!this.workspace) return;
+        const target = this.paintBlockHighlight();
+        if (target) this.scrollFlyoutToBlock(target);
+    }
+    /**
+     * Put the outline on the requested block, taking it off any other. Safe to
+     * call on every flyout re-render, and does not move the palette.
+     * @returns {?Blockly.BlockSvg} the outlined block, or null if there is no
+     *     highlight to show or the block is not in this palette.
+     */
+    paintBlockHighlight () {
+        if (!this.workspace) return null;
         const flyout = this.workspace.getFlyout();
         const flyoutWorkspace = flyout && flyout.getWorkspace();
-        if (!flyoutWorkspace) return;
+        if (!flyoutWorkspace) return null;
 
         const blocks = flyoutWorkspace.getTopBlocks(false);
 
@@ -575,18 +627,18 @@ class Blocks extends React.Component {
         }
 
         const opcode = this.props.highlightedOpcode;
-        if (!opcode) return;
+        if (!opcode) return null;
 
         const target = blocks.find(block => block.type === opcode);
         if (!target) {
             // A legitimate answer, not an error: a disabled category means the
             // block genuinely is not in this student's palette (feature config
             // can remove the extension blocks). Say nothing and do nothing.
-            return;
+            return null;
         }
 
         const root = target.getSvgRoot();
-        if (!root) return;
+        if (!root) return null;
 
         // Force a reflow between the remove and the add so that re-sending the
         // SAME opcode restarts the attention animation. Without it the browser
@@ -596,12 +648,39 @@ class Blocks extends React.Component {
         if (cleared) root.getBoundingClientRect();
         root.classList.add(HIGHLIGHT_CLASS);
 
+        return target;
+    }
+    /**
+     * Bring the outlined block into view. Only ever called for a request the
+     * parent actually made — see the ownership note above.
+     * @param {!Blockly.BlockSvg} target the block to scroll to
+     */
+    scrollFlyoutToBlock (target) {
+        // Everything else in this pair null-checks; toolbox_ was the one
+        // dereference that did not, and it runs inside a redux-driven
+        // componentDidUpdate behind errorBoundaryHOC('Blocks') — so a throw here
+        // takes the whole editor down and shows the crash screen.
+        const toolbox = this.workspace && this.workspace.toolbox_;
+        if (!toolbox) return;
+
+        // Cancel any category animation still in flight. `setFlyoutScrollPos`
+        // ends at `scrollbar_.set()`, which moves the flyout without touching
+        // `scrollTarget` — so a rAF from `stepScrollAnimation` fires on the next
+        // frame and converges back on the category the student was leaving. The
+        // palette flicks to the block for one frame and scrolls all the way
+        // back. `Flyout.wheel_` nulls this for exactly the same reason, which is
+        // the precedent for reaching into the field here.
+        //
+        // It also unblocks the category menu: `selectCategoryByScrollPosition`
+        // returns early while `scrollTarget` is set, so without this the menu
+        // keeps naming the old category after we have jumped somewhere else.
+        const flyout = this.workspace.getFlyout();
+        if (flyout) flyout.scrollTarget = null;
+
         // Scroll the block itself into view rather than its category, which is
         // both more precise and how the category menu ends up correct for free.
         const y = target.getRelativeToSurfaceXY().y;
-        this.workspace.toolbox_.setFlyoutScrollPos(
-            Math.max(0, y - HIGHLIGHT_SCROLL_MARGIN)
-        );
+        toolbox.setFlyoutScrollPos(Math.max(0, y - HIGHLIGHT_SCROLL_MARGIN));
     }
     setBlocks (blocks) {
         this.blocks = blocks;

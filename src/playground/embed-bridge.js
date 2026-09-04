@@ -47,6 +47,14 @@
 //                                                     // absent opcodes no-op silently — a
 //                                                     // disabled category means the block
 //                                                     // really is not there.
+//     { type: 'scratch:clear-highlight' }                             // take the outline back
+//                                                     // off. The outline is deliberately sticky
+//                                                     // — it survives tab switches, other
+//                                                     // clicks and dragging the block out — so
+//                                                     // nothing but this ends it. Sent when the
+//                                                     // student pages past the instruction that
+//                                                     // asked for it. Harmless when nothing is
+//                                                     // highlighted.
 //     { type: 'scratch:set-tab',       tab: 'code'|'costumes'|'sounds' } // switch tabs. Sent
 //                                                     // before a highlight whose palette is not
 //                                                     // on screen. A tab the feature config has
@@ -79,7 +87,7 @@ import debounce from 'lodash.debounce';
 
 import {setTheme} from '../reducers/theme';
 import {setFeatureConfig} from '../reducers/feature-config';
-import {highlightBlock} from '../reducers/highlight';
+import {clearHighlight, highlightBlock} from '../reducers/highlight';
 import {
     activateTab,
     BLOCKS_TAB_INDEX,
@@ -295,6 +303,14 @@ export default function attachEmbedBridge (store) {
                 if (typeof data.opcode === 'string' && data.opcode) {
                     store.dispatch(highlightBlock(data.opcode));
                 }
+                break;
+
+            case 'scratch:clear-highlight':
+                // The student has moved past the instruction that pointed at
+                // the block. Nothing else clears the outline — it is meant to
+                // survive tab switches, other clicks and dragging the block out
+                // — so without this verb only a page reload ended it.
+                store.dispatch(clearHighlight());
                 break;
 
             case 'scratch:set-tab':
